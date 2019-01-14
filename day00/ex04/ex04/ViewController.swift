@@ -30,6 +30,13 @@ class ViewController: UIViewController {
             }
         }
     }
+    var isOverflow = false {
+        didSet {
+            if isOverflow {
+                label.text = "Overflow"
+            }
+        }
+    }
     var secondNum = 0
     
     @IBAction func mult(sender: UIButton) {
@@ -79,6 +86,7 @@ class ViewController: UIViewController {
         lastOp = .none
         currentRes = 0
         isNaN = false
+        isOverflow = false
     }
     
     @IBAction func neg() {
@@ -106,6 +114,10 @@ class ViewController: UIViewController {
         }
         else {
             label.text = "\(label.text ?? "")\(sender.tag)"
+            guard let _ = Int(label.text!) else {
+                isOverflow = true
+                return
+            }
         }
     }
     
@@ -125,15 +137,18 @@ class ViewController: UIViewController {
     }
     
     func calculate(force: Bool) {
-        if isNaN || (initialState && !force) {
+        if isNaN || (initialState && !force) || isOverflow {
             if isNaN {
                 label.text = "Not a number"
+            }
+            else if isOverflow {
+                label.text = "Overflow"
             }
             return
         }
         if (!(force && initialState)) {
             guard let num = Int(label.text!) else {
-                isNaN = true
+                isOverflow = true
                 return
             }
             secondNum = num
@@ -145,15 +160,21 @@ class ViewController: UIViewController {
             break
             
         case .add:
-            currentRes &+= secondNum
+            let res = currentRes.addingReportingOverflow(secondNum)
+            isOverflow = res.overflow
+            currentRes = res.partialValue
             break
             
         case .sub:
-            currentRes &-= secondNum
+            let res = currentRes.subtractingReportingOverflow(secondNum)
+            isOverflow = res.overflow
+            currentRes = res.partialValue
             break
             
         case .mult:
-            currentRes &*= secondNum
+            let res = currentRes.multipliedReportingOverflow(by: secondNum)
+            isOverflow = res.overflow
+            currentRes = res.partialValue
             break
             
         case .div:
@@ -161,11 +182,15 @@ class ViewController: UIViewController {
                 isNaN = true
                 return
             }
-            currentRes /= secondNum
+            let res = currentRes.dividedReportingOverflow(by: secondNum)
+            isOverflow = res.overflow
+            currentRes = res.partialValue
             break
             
         }
-        label.text = "\(currentRes)"
+        if !isOverflow {
+            label.text = "\(currentRes)"
+        }
     }
 
     override func viewDidLoad() {
